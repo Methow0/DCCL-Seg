@@ -99,8 +99,7 @@ def main():
             post_fix = []
         num_channels = [3]
         dsets2[x1] = DataFolder(dir_list, post_fix, num_channels, data_transforms[x1])
-    # 加载DeepLabv3_plus时，由于batchnorm层需要大于一个样本去计算其中的参数，
-    # 解决方法是将dataloader的一个丢弃参数设置为true
+   
     train_loader = DataLoader(dsets['train'], batch_size=opt.train['batch_size'], shuffle=True,
                               num_workers=opt.train['workers'], drop_last=True)
     train_loader1 = DataLoader(dsets2['train1'], batch_size=opt.train['batch_size'], shuffle=True,
@@ -109,7 +108,7 @@ def main():
                             num_workers=opt.train['workers'], drop_last=True)
     val_loader1 = DataLoader(dsets['valA'], batch_size=1, shuffle=False,
                              num_workers=opt.train['workers'], drop_last=True)
-    # ----- optionally load from a checkpoint for validation or resuming training ----- #
+ 
     if opt.train['checkpoint']:
         if os.path.isfile(opt.train['checkpoint']):
             logger.info("=> loading checkpoint '{}'".format(opt.train['checkpoint']))
@@ -139,9 +138,9 @@ def main():
         is_best = val_iou > best_iou
         best_iou = max(val_iou, best_iou)
 
-        # is_second = val_iou >= 0.80
+       
         if (val_iou >= 0.80):
-            # val_loss1, val_pixel_acc1, val_iou1 = validate(val_loader1, model, criterion)
+       
             is_second = val_iou1 >= 0.80
             cp_flag = (epoch + 1) % opt.train['checkpoint_freq'] == 0
             save_checkpoint({
@@ -204,17 +203,14 @@ def train(train_loader, train_loader1, model, ema_model, gta_model,optimizer, cr
 
         # compute output
 
-        # output, out1, out2 = model(input_var)
         output_ema,out_sdm,output_rep = ema_model(input_var1)
         output_ema3 = F.softmax(output_ema, dim=1)
-        # index2 = torch.argmax(output_ema3, dim=1)
-        # sd2 = torch.where(index2 == 1, 255, 0)
-        # featuremap_visual(sd2.unsqueeze(1), i=i, out_dir='/root/Code/FullNet/result/pseudo', num_ch=-1)
+      )
         target_sdm = compute_sdf(targetdis, out_sdm.shape)
         target_sdm = torch.tensor(target_sdm)
 
         pred_sdm = torch.tensor(compute_sdf(output_ema[:, 1:2, :, :].cpu(), out_sdm.shape))
-        # mse_loss1 = consistency_loss(pred_sdm.to(torch.float32).cuda(), target_sdm.to(torch.float32).cuda())
+     
         mse_loss = consistency_loss(out_sdm.to(torch.float32).cuda(), pred_sdm.to(torch.float32).cuda())
 
 
@@ -244,12 +240,7 @@ def train(train_loader, train_loader1, model, ema_model, gta_model,optimizer, cr
         loss_map = criterion(log_prob_maps, target_var)
         loss_map *= weight_map_var
         loss_CE = loss_map.mean()
-        # print("loss_CE:",loss_CE)
-
-        # InNce_loss = criterion_loss(output_rep,out_rep,0.1,8,1.0,'hard')
-        # print("InNce_loss:",InNce_loss/10)
-
-
+       
 
 
         if opt.train['alpha'] != 0:
@@ -259,7 +250,7 @@ def train(train_loader, train_loader1, model, ema_model, gta_model,optimizer, cr
             target_labeled = torch.zeros(target1.size()).long()
             for k in range(target1.size(0)):
                 target_labeled[k] = torch.from_numpy(measure.label(target1[k].numpy() == 1))
-                # utils.show_figures((target[k].numpy(), target[k].numpy()==1, target_labeled[k].numpy()))
+                
             loss_var = criterion_var(prob_maps, target_labeled.cuda())
             # print(2*loss_total_mse)
             loss = loss_CE + opt.train['alpha'] * loss_var + loss_CE1 + 1.2*loss_total_mse
@@ -281,8 +272,7 @@ def train(train_loader, train_loader1, model, ema_model, gta_model,optimizer, cr
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        # for param in model.named_parameters():
-        #     print(param[0])
+ 
 
         model, ema_model = update_ema_variables(model, ema_model, 0.999)
 
@@ -389,17 +379,12 @@ def compute_unsupervised_loss_conf_weight(target, percent, pred_teacher):
             conf[target < 1 ].cpu().numpy().flatten(), 100 - percent
         )
 
-        # print(conf_thresh)
+      
         thresh_mask = conf.le(conf_thresh).bool() * (target <1).bool()
-        # print(thresh_mask)
+
         conf[thresh_mask] = 0
         target[thresh_mask] = 1
-        # for k in range(0,8):
-        #     cv2.imwrite('/root/Code/FullNet/result/repseudo/prob_inside_{:s}.png'.format(str(k)),
-        #                 target[k].detach().cpu().numpy().astype(np.uint8))
-
-        # print("target.min:",target.min())
-        # print("target.max:",target.max())
+       
         weight = batch_size * h * w / (torch.sum(target < 1 ) + 1e-6)
 
     loss_ = weight * F.cross_entropy(pred_teacher, target, ignore_index=1, reduction='none')  # [10, 321, 321]
